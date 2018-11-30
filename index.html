@@ -7,7 +7,7 @@ var DEBUG = false;
 
 const DELTA = 1/updatesPerSecond;
 const CENTER = new Vector2(totalWidth/2, totalHeight/2);
-const FRICTION = 0.98;
+const FRICTION = 0.991;
 const COLORS = {green:"#009432", wine:"#6D214F", purple:"#833471", orange:"#F79F1F", yellow:"#ffd32a", white:"#d2dae2", blue:"#0652DD", lightBlue:"#575fcf", darkGreen:"#006266", brown:"#4E342E", darkBrown:"#3E2723", red:"#f53b57", black:"#1e272e"};
 const BALLCOLORS = [COLORS.yellow, COLORS.blue, COLORS.red, COLORS.purple, COLORS.orange, COLORS.green, COLORS.wine, COLORS.black];
 const SIZECONSTANT = (totalWidth+totalHeight)/2.5;
@@ -21,7 +21,7 @@ var r = SIZECONSTANT/65;
 balls.push (new Ball (new Vector2 (CENTER.x - CENTER.x/3, CENTER.y), r));
 
 for (var i = 0; i < 15; i++) {
-	balls.push (new Ball (new Vector2 (CENTER.x + 30*i, CENTER.y + random (-40, 40)), r));
+	balls.push (new Ball (new Vector2 (CENTER.x + CENTER.x/3 + i*5, CENTER.y + random (-40, 40)), r));
 }
 
 const STICK = new Stick ();
@@ -154,7 +154,7 @@ function Ball (position=CENTER, radius=15, half, color) {
 		this.rotation += this.rotationVelocity;
 
 		this.velocity = this.velocity.multiply (FRICTION);
-		this.rotationVelocity *= map (FRICTION, 0, 1, 0.5, 1);
+		this.rotationVelocity *= FRICTION;
 
 		this.isMoving = distance (this.velocity, new Vector2 (0, 0)) > 1 || this.rotationVelocity > 100;
 
@@ -193,7 +193,7 @@ function Ball (position=CENTER, radius=15, half, color) {
 		let x = this.position.x;
 		let y = this.position.y;
 		if (x - this.radius <= TABLE.x1 || x + this.radius >= TABLE.x2) {
-			this.velocity = new Vector2 (-this.velocity.x, this.velocity.y);
+			this.velocity = new Vector2 (-this.velocity.x*FRICTION/2, this.velocity.y);
 			this.rotationVelocity = -this.rotationVelocity;
 
 			while (this.position.x - this.radius <= TABLE.x1) {
@@ -205,7 +205,7 @@ function Ball (position=CENTER, radius=15, half, color) {
 			}
 		}
 		if (y - this.radius <= TABLE.y1 || y + this.radius >= TABLE.y2) {
-			this.velocity = new Vector2 (this.velocity.x, -this.velocity.y);
+			this.velocity = new Vector2 (this.velocity.x, -this.velocity.y*FRICTION/2);
 			this.rotationVelocity = -this.rotationVelocity;
 
 			while (this.position.y - this.radius <= TABLE.y1 ) {
@@ -261,8 +261,8 @@ function Ball (position=CENTER, radius=15, half, color) {
 
 		let otherRotationVelocity = other.rotationVelocity;
 
-		other.rotationVelocity -= this.rotationVelocity;
-		this.rotationVelocity -= otherRotationVelocity;
+		other.rotationVelocity -= this.rotationVelocity * (0.9);
+		this.rotationVelocity -= otherRotationVelocity * (0.9);
 	}
 }
 
@@ -287,7 +287,7 @@ function Stick (position=CENTER, color=COLORS.darkBrown, length) {
 		translate (this.position.x, this.position.y);
 
 		if (DEBUG) {
-			let vel = this.currentBall.velocity.add (new Vector2 (Math.cos (this.rotation), Math.sin (this.rotation)).multiply (this.power)).multiply (FRICTION).multiply (DELTA*50);
+			let vel = this.currentBall.velocity.add (new Vector2 (Math.cos (this.rotation), Math.sin (this.rotation)).multiply (this.power));
 			line (0, 0, vel.x, vel.y, 1, COLORS.red);
 		}
 
@@ -317,7 +317,7 @@ function Stick (position=CENTER, color=COLORS.darkBrown, length) {
 
 	this.shoot = function (ball) {
 		ball.velocity.addTo (new Vector2 (Math.cos (this.rotation), Math.sin (this.rotation)).multiply (this.power));
-		ball.rotationVelocity += random (this.power, this.maxPower);
+		ball.rotationVelocity += random (this.power-100, this.power+100);
 		this.power = 0;
 		this.canShoot = false;
 		this.mouseDistance = 0;
