@@ -1,0 +1,321 @@
+<script src="https://koda.nu/simple.js">
+
+updatesPerSecond = 100;
+
+var canvas, context;
+var DEBUG = false;
+
+const DELTA = 1/updatesPerSecond;
+const CENTER = new Vector2(totalWidth/2, totalHeight/2);
+const FRICTION = 0.985;
+const COLORS = {green:"#009432", wine:"#6D214F", purple:"#833471", orange:"#F79F1F", yellow:"#ffd32a", white:"#d2dae2", blue:"#0652DD", lightBlue:"#575fcf", darkGreen:"#006266", brown:"#4E342E", darkBrown:"#3E2723", red:"#f53b57", black:"#1e272e"};
+const BALLCOLORS = [COLORS.yellow, COLORS.blue, COLORS.red, COLORS.purple, COLORS.orange, COLORS.green, COLORS.wine, COLORS.black];
+const SIZECONSTANT = 900;
+const TABLESIZE = new Vector2 (SIZECONSTANT, (1/2)*SIZECONSTANT);
+const TABLE = new Table (new Vector2 (CENTER.x-TABLESIZE.x/2, CENTER.y-TABLESIZE.y/2), new Vector2 (CENTER.x+TABLESIZE.x/2, CENTER.y+TABLESIZE.y/2));
+
+var ballsAreMoving = true;
+
+var balls = [];
+
+balls.push (new Ball (new Vector2 (CENTER.x - CENTER.x/3, CENTER.y), 13));
+
+for (var i = 0; i < 16; i++) {
+	balls.push (new Ball (new Vector2 (CENTER.x + 20*i, CENTER.y + random (-100, 100)), 13));
+}
+
+const STICK = new Stick ();
+
+function start () {
+	STICK.currentBall = balls[0];
+	canvas = document.getElementById ("canvas");
+	context = canvas.getContext ("2d");
+}
+
+function update () {
+
+	DEBUG = keyboard.d;
+	fill (COLORS.black);
+	TABLE.draw ();
+
+	checkCollisions ();
+
+	updateBalls ();
+	STICK.update ();
+}
+
+function checkCollisions () {
+	for (let i = 0; i < balls.length; i++) {
+		for (let j = i + 1; j < balls.length; j++) {
+			balls [i].collide (balls [j]);
+		}
+	}
+}
+
+function updateBalls () {
+	let moving = false;
+
+	for (let i = 0; i < balls.length; i++) {
+		balls [i].update ();
+		if (balls[i].isMoving) {
+			moving = true;
+		}
+	}
+
+	ballsAreMoving = moving;
+}
+
+function Table (pos1, pos2, width=25) {
+	this.x1 = pos1.x;
+	this.x2 = pos2.x;
+	this.y1 = pos1.y;
+	this.y2 = pos2.y;
+	this.width = width;
+
+	this.draw = function () {
+		rectangle (this.x1, this.y1, this.x2-this.x1, this.y2-this.y1, COLORS.darkGreen);
+
+		rectangle (this.x1-this.width, this.y1-this.width, this.x2-this.x1+this.width*2, this.width, COLORS.brown);
+		rectangle (this.x1-this.width, this.y2, this.x2-this.x1+this.width*2, this.width, COLORS.brown);
+
+		rectangle (this.x1-this.width, this.y1, this.width, this.y2-this.y1, COLORS.brown);
+		rectangle (this.x2, this.y1, this.width, this.y2-this.y1, COLORS.brown);
+
+		circle (this.x1, this.y1, 15, COLORS.black);
+	}
+}
+
+function Vector2 (x=0, y=0) {
+	this.x = x;
+	this.y = y;
+
+	this.addTo = function (vector) {
+		this.x += vector.x;
+		this.y += vector.y;
+	}
+
+	this.subtractFrom = function  (vector) {
+		this.x -= vector.x;
+		this.y -= vector.y;
+	}
+
+	this.add = function (vector) {
+		return new Vector2 (this.x + vector.x, this.y + vector.y);
+	}
+
+	this.subtract = function  (vector) {
+		return new Vector2 (this.x - vector.x, this.y - vector.y);
+	}
+
+	this.multiply = function (n) {
+		return new Vector2 (this.x * n, this.y * n);
+	}
+
+	this.divide = function (n) {
+		return new Vector2 (this.x / n, this.y / n);
+	}
+
+	this.copy = function () {
+		return new Vector2 (this.x, this.y);
+	}
+
+	this.dotProduct = function (vector) {
+		return ((this.x * vector.x) + (this.y * vector.y));
+	}
+}
+
+function Ball (position=CENTER, radius=15, half=false, color) {
+	this.velocity = new Vector2 (0, 0);
+	this.position = position;
+	this.radius = radius;
+	this.id = balls.length;
+	this.color = color || (this.id == 0 ? COLORS.white : BALLCOLORS[(this.id > 8 ? (this.id%9) : (this.id%9)-1)]);
+	this.half = half;
+
+	this.isMoving = false;
+	this.rotation = 0;
+	this.rotationVelocity = 0;
+
+	this.update = function () {
+
+		this.position.addTo (this.velocity.multiply (DELTA));
+
+		this.rotation = (this.rotation > 360 ? 0 : (this.rotation < 0 ? 360 : 0));
+		this.rotation += this.rotationVelocity;
+
+		this.velocity = this.velocity.multiply (FRICTION);
+		this.rotationVelocity *= map (FRICTION, 0, 1, 0.5, 1);
+
+		this.isMoving = distance (this.velocity, new Vector2 (0, 0)) > 1 || this.rotationVelocity > 100;
+
+		this.checkTableCollisions ();
+		this.draw ();
+	}
+
+	this.draw = function () {
+
+		save ();
+		translate (this.position.x, this.position.y)
+		rotate (this.rotation);
+		circle (0, 0, this.radius, this.color);
+		circle (0, 0, (this.id > 9 ? this.radius/1.6 : this.radius/2), COLORS.white);
+
+		context.textAlign = "center";
+
+		if (this.id > 0)
+			text (0, 0 + this.radius/2.55, this.radius/1.3, this.id, COLORS.black);
+		restore ();
+
+		if (DEBUG)
+			line (this.position.x, this.position.y, this.position.x + this.velocity.x, this.position.y + this.velocity.y, 1, this.color);
+	}
+
+	this.checkTableCollisions = function () {
+		let x = this.position.x;
+		let y = this.position.y;
+		if (x - this.radius <= TABLE.x1 || x + this.radius >= TABLE.x2) {
+			this.velocity = new Vector2 (-this.velocity.x, this.velocity.y);
+			this.rotationVelocity = -this.rotationVelocity;
+
+			while (this.position.x - this.radius <= TABLE.x1) {
+				this.position.x += 0.1;
+			}
+
+			while (this.position.x + this.radius >= TABLE.x2) {
+				this.position.x -= 0.1;
+			}
+		}
+		if (y - this.radius <= TABLE.y1 || y + this.radius >= TABLE.y2) {
+			this.velocity = new Vector2 (this.velocity.x, -this.velocity.y);
+			this.rotationVelocity = -this.rotationVelocity;
+
+			while (this.position.y - this.radius <= TABLE.y1 ) {
+				this.position.y += 0.1;
+			}
+
+			while (this.position.y + this.radius >= TABLE.y2) {
+				this.position.y -= 0.1;
+			}
+		}
+
+
+	}
+
+	this.collide = function (other) {
+		let d = distance (this.position, other.position);
+
+		let r = (this.radius + other.radius);
+
+		if (d > r) {
+			return;
+		}
+
+		// Normalize the distance to other (normalized normal)
+		let unitNormal = (other.position.subtract (this.position).divide (d));
+
+		if (d < r) {
+			while (d < r) {
+				this.position.subtractFrom (unitNormal.multiply (0.1));
+				d = distance (this.position, other.position);
+			}
+			unitNormal = (other.position.subtract (this.position).divide (d));
+		}
+
+		// Get tangent of normalized normal
+		let unitTangent = new Vector2 (-unitNormal.y, unitNormal.x);
+
+		let v1n = unitNormal.dotProduct (this.velocity);
+		let v1t = unitTangent.dotProduct (this.velocity);
+		let v2n = unitNormal.dotProduct (other.velocity);
+		let v2t = unitTangent.dotProduct (other.velocity);
+
+		let v1nPrime = v2n;
+		let v2nPrime = v1n;
+
+		v1nPrime = unitNormal.multiply (v1nPrime);
+		let v1tPrime = unitTangent.multiply (v1t);
+		v2nPrime = unitNormal.multiply (v2nPrime);
+		let v2tPrime = unitTangent.multiply (v2t);
+
+		this.velocity = v1nPrime.add (v1tPrime);
+		other.velocity = v2nPrime.add (v2tPrime);
+
+		let otherRotationVelocity = other.rotationVelocity;
+
+		other.rotationVelocity -= this.rotationVelocity;
+		this.rotationVelocity -= otherRotationVelocity;
+	}
+}
+
+function Stick (position=CENTER, color=COLORS.darkBrown, length=290) {
+	this.position = position;
+	this.color = color;
+	this.length = length;
+
+	this.power = 0;
+	this.onShoot = false;
+	this.rotation = 0;
+
+	this.currentBall;
+	this.canShoot = true;
+	this.mouseDistance = 0;
+
+	this.maxMouseDistance = 200;
+	this.maxPower = 2100;
+
+	this.draw = function () {
+		save ();
+		translate (this.position.x, this.position.y);
+
+		if (DEBUG) {
+			let vel = this.currentBall.velocity.add (new Vector2 (Math.cos (this.rotation), Math.sin (this.rotation)).multiply (this.power)).multiply (FRICTION).multiply (DELTA*50);
+			line (0, 0, vel.x, vel.y, 1, COLORS.red);
+		}
+
+		rotateRadians (this.rotation);
+
+		let n = 1;
+		let mouseLength = map (this.mouseDistance, this.currentBall.radius, this.maxMouseDistance, this.currentBall.radius, this.maxMouseDistance)/n;
+		line (-mouseLength, 0, -this.length - mouseLength, 0, 3, this.color);
+		restore ();
+	}
+
+	this.update = function () {
+		this.rotation = Math.atan2 ((mouse.y - this.position.y), (mouse.x - this.position.x)) + Math.PI;
+
+		if (!ballsAreMoving) {
+			this.position = this.currentBall.position.copy ();
+			this.canShoot = true;
+			this.draw ();
+		}
+
+		if (mouse.left && this.canShoot) {
+			this.mouseDistance = distance (mouse, this.currentBall.position);
+			this.power = map (this.mouseDistance, this.currentBall.radius, this.maxMouseDistance, 0, this.maxPower);
+		} else if (this.power > 0 && this.canShoot) {
+			this.shoot (this.currentBall);
+		}
+	}
+
+	this.shoot = function (ball) {
+		ball.velocity.addTo (new Vector2 (Math.cos (this.rotation), Math.sin (this.rotation)).multiply (this.power));
+		ball.rotationVelocity += random (this.power, this.maxPower);
+		this.power = 0;
+		this.canShoot = false;
+		this.mouseDistance = 0;
+	}
+}
+
+function map (value, start1, stop1, start2, stop2) {
+	let outgoing = start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+
+	if (outgoing > stop2)
+		outgoing = stop2;
+
+	if (outgoing < start2)
+		outgoing = start2;
+
+	return outgoing;
+}
+
+</script>
