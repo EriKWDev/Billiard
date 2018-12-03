@@ -12,10 +12,10 @@ const COLORS = {green:"#009432", wine:"#6D214F", purple:"#833471", orange:"#F79F
 const BALLCOLORS = [COLORS.yellow, COLORS.blue, COLORS.red, COLORS.purple, COLORS.orange, COLORS.green, COLORS.wine, COLORS.black];
 const SIZECONSTANT = (totalWidth+totalHeight)/2.5;
 const TABLESIZE = new Vector2 (SIZECONSTANT, (1/2)*SIZECONSTANT);
-const TABLE = new Table (new Vector2 (CENTER.x-TABLESIZE.x/2, CENTER.y-TABLESIZE.y/2), new Vector2 (CENTER.x+TABLESIZE.x/2, CENTER.y+TABLESIZE.y/2));
+const TABLE = new Table (new Vector2 (CENTER.x-TABLESIZE.x/2, CENTER.y-TABLESIZE.y/2), new Vector2 (CENTER.x+TABLESIZE.x/2, CENTER.y+TABLESIZE.y/2), SIZECONSTANT/30);
 
 var ballsAreMoving = true;
-var balls = [];
+var balls = [], halfBallsOut = [], wholeBallsOut = [], holes = [];
 
 var r = SIZECONSTANT/65;
 balls.push (new Ball (new Vector2 (CENTER.x - CENTER.x/3, CENTER.y), r));
@@ -23,6 +23,17 @@ balls.push (new Ball (new Vector2 (CENTER.x - CENTER.x/3, CENTER.y), r));
 for (var i = 0; i < 15; i++) {
 	balls.push (new Ball (new Vector2 (CENTER.x + CENTER.x/3 + i*5, CENTER.y + random (-40, 40)), r));
 }
+
+let holeRadius = r*1.3;
+let fifthWidth = TABLE.width/5;
+
+holes.push (new Hole (TABLE.x1+fifthWidth, TABLE.y1+fifthWidth, holeRadius));
+holes.push (new Hole (TABLE.x2-fifthWidth, TABLE.y1+fifthWidth, holeRadius));
+holes.push (new Hole (TABLE.x1+fifthWidth, TABLE.y2-fifthWidth, holeRadius));
+holes.push (new Hole (TABLE.x2-fifthWidth, TABLE.y2-fifthWidth, holeRadius));
+
+holes.push (new Hole (TABLE.x1+(TABLE.x2-TABLE.x1)/2, TABLE.y1, holeRadius));
+holes.push (new Hole (TABLE.x1+(TABLE.x2-TABLE.x1)/2, TABLE.y2, holeRadius));
 
 const STICK = new Stick ();
 
@@ -33,7 +44,6 @@ function start () {
 }
 
 function update () {
-
 	DEBUG = keyboard.d;
 	fill (COLORS.black);
 	TABLE.draw ();
@@ -41,7 +51,22 @@ function update () {
 	checkCollisions ();
 
 	updateBalls ();
+	drawBallsThatAreOut ();
 	STICK.update ();
+}
+
+function drawBallsThatAreOut () {
+	if (halfBallsOut.length > 0) {
+		for (let i = 0; i < halfBallsOut.length; i++) {
+			halfBallsOut[i].draw ();
+		}
+	}
+
+	if (wholeBallsOut.length > 0) {
+		for (let i = 0; i < wholeBallsOut.length; i++) {
+			wholeBallsOut[i].draw ();
+		}
+	}
 }
 
 function checkCollisions () {
@@ -65,6 +90,13 @@ function updateBalls () {
 	ballsAreMoving = moving;
 }
 
+function Hole (x, y, radius, color=COLORS.black) {
+	this.x = x;
+	this.y = y;
+	this.radius = radius;
+	this.color = color;
+}
+
 function Table (pos1, pos2, width) {
 	this.x1 = pos1.x;
 	this.x2 = pos2.x;
@@ -82,16 +114,30 @@ function Table (pos1, pos2, width) {
 		rectangle (this.x1-this.width, this.y1-this.width, this.width, this.y2-this.y1+this.width, COLORS.brown);
 		rectangle (this.x2, this.y1, this.width, this.y2-this.y1, COLORS.brown);
 
-		let holeRadius = r*1.3;
-		let fifthWidth = this.width/5;
+		for (let i = 0; i < holes.length; i++) {
+			let hole =holes[i];
+			circle (hole.x, hole.y, hole.radius, hole.color);
 
-		circle (this.x1+fifthWidth, this.y1+fifthWidth, holeRadius, COLORS.black);
-		circle (this.x2-fifthWidth, this.y1+fifthWidth, holeRadius, COLORS.black);
-		circle (this.x1+fifthWidth, this.y2-fifthWidth, holeRadius, COLORS.black);
-		circle (this.x2-fifthWidth, this.y2-fifthWidth, holeRadius, COLORS.black);
+			for (let j = 0; j < balls.length; j++) {
+				var ball = balls[j];
 
-		circle (+this.x1+(this.x2-this.x1)/2, this.y1, holeRadius, COLORS.black);
-		circle (this.x1+(this.x2-this.x1)/2, this.y2, holeRadius, COLORS.black);
+				if (distance (hole, ball.position) < ball.radius*2) {
+					if (ball.id != 0) {
+						ball.velocity = new Vector2 ();
+						if (ball.half) {
+							ball.position = new Vector2 (TABLE.x1+(halfBallsOut.length * ball.radius*2.5), TABLE.y2 + TABLE.width + ball.radius*2.5);
+							halfBallsOut.push (ball);
+						} else {
+							ball.position = new Vector2 (TABLE.x1+(wholeBallsOut.length * ball.radius*2.5), TABLE.y1 - TABLE.width - ball.radius*2.5);
+							wholeBallsOut.push (ball);
+						}
+						balls.splice (j, 1);
+					} else {
+
+					}
+				}
+			}
+		}
 	}
 }
 
